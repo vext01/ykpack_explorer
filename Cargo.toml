@@ -1,0 +1,17 @@
+[package]
+name = "ykpack-explorer"
+version = "0.1.0"
+authors = ["Edd Barrett <vext01@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ykpack = { path = "../ykpack" }
+elf = "0.0"
+fallible-iterator = "0.1"
+tempfile = "3.0"
+
+# We are using a git version to work around a bug:
+# https://github.com/3Hren/msgpack-rust/issues/183
+#[dependencies.rmp-serde]
+#git = "https://github.com/3Hren/msgpack-rust"
+#rev = "40b3d480b20961e6eeceb416b32bcd0a3383846a"
