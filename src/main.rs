@@ -36,6 +36,15 @@ fn style_node(w: &mut dyn Write, node_name: &str, label: Option<&str>, attrs: Op
     writeln!(w, "\t{}", s).unwrap();
 }
 
+fn get_statements_text(blk: &BasicBlock) -> String {
+    let mut lines = Vec::new();
+    for stmt in &blk.stmts {
+        lines.push(format!("{:?}", stmt));
+    }
+
+    lines.join("\\n")
+}
+
 fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
     let goto_label = String::from("goto");
     let ret_label = String::from("ret");
@@ -77,6 +86,7 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
         },
         Terminator::Resume => {
             let resume_node = cx.external_node_label(resume_label.clone());
+            style_node(fh, &resume_node, None, Some("shape=point, color=blue"));
             write_edge_raw(fh, &src_bb_str, &resume_node, None);
             &resume_label
         },
@@ -150,7 +160,9 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
         },
     };
 
-    style_node(fh, &src_bb_str, Some(&format!("{{{} | {}}}", src_bb_str, term_label)), Some("shape = record, style=filled, fillcolor=beige"));
+    let stmts_str = get_statements_text(block);
+
+    style_node(fh, &src_bb_str, Some(&format!("{{{} | {} | {}}}", src_bb_str, stmts_str, term_label)), Some("shape = record, style=filled, fillcolor=beige"));
 }
 
 struct Context {
