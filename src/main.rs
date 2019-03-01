@@ -51,8 +51,6 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
     let call_label = String::from("call");
     let cleanup_label = String::from("cleanup");
     let abort_label = String::from("abort");
-    let false_edge_label = String::from("false edge");
-    let false_unwind_label = String::from("false unwind");
     let switch_int_label = String::from("switch_int");
     let resume_label = String::from("resume");
     let unreach_label = String::from("unreachable");
@@ -69,14 +67,6 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
         Terminator::Goto{ target_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             &goto_label
-        },
-        Terminator::FalseEdges { real_target_bb } => {
-            write_edge(fh, src_bb, real_target_bb, None);
-            &false_edge_label
-        },
-        Terminator::FalseUnwind { real_target_bb } => {
-            write_edge(fh, src_bb, real_target_bb, None);
-            &false_unwind_label
         },
         Terminator::SwitchInt{ ref target_bbs } => {
             for target_bb in target_bbs.clone() {
@@ -217,7 +207,7 @@ fn graph(mir: Mir) {
 
 fn process(path: PathBuf) {
     let ef = elf::File::open_path(&path).unwrap();
-    let sec = ef.get_section(".yk_mir_cfg").unwrap();
+    let sec = ef.get_section(".yk_cfg").unwrap();
     let mut curs = Cursor::new(&sec.data);
     let mut dec = Decoder::from(&mut curs);
 
