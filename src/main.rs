@@ -66,71 +66,72 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
     let term_label = match block.term {
         Terminator::Goto{ target_bb } => {
             write_edge(fh, src_bb, target_bb, None);
-            &goto_label
+            goto_label.to_owned()
         },
         Terminator::SwitchInt{ ref target_bbs } => {
             for target_bb in target_bbs.clone() {
                 write_edge(fh, src_bb, target_bb, None);
             }
-            &switch_int_label
+            switch_int_label.to_owned()
         },
         Terminator::Resume => {
             let resume_node = cx.external_node_label(resume_label.clone());
             style_node(fh, &resume_node, None, Some("shape=point, color=blue"));
             write_edge_raw(fh, &src_bb_str, &resume_node, None);
-            &resume_label
+            resume_label.to_owned()
         },
         Terminator::Abort => {
             let abort_node = cx.external_node_label(abort_label.clone());
             style_node(fh, &abort_node, None, Some("shape=point, color=red"));
             write_edge_raw(fh, &src_bb_str, &abort_node, None);
-            &abort_label
+            abort_label.to_owned()
         },
-        Terminator::Return => {
+        Terminator::Return(v) => {
             let ret_node = cx.external_node_label(ret_label.clone());
             style_node(fh, &ret_node, None, Some("shape=point"));
             write_edge_raw(fh, &src_bb_str, &ret_node, None);
-            &ret_label
+            //ret_label.to_owned()
+            format!("ret({})", v)
         },
         Terminator::Unreachable => {
             let unreach_node = cx.external_node_label(unreach_label.clone());
             style_node(fh, &unreach_node, None, None);
             write_edge_raw(fh, &src_bb_str, &unreach_node, None);
-            &unreach_label
+            unreach_label.to_owned()
         },
         Terminator::GeneratorDrop => {
             let gen_drop_node = cx.external_node_label(gen_drop_label.clone());
             style_node(fh, &gen_drop_node, None, None);
             write_edge_raw(fh, &src_bb_str, &gen_drop_node, None);
-            &gen_drop_label
+            gen_drop_label.to_owned()
         }
         Terminator::Drop { target_bb, unwind_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(u_bb) = unwind_bb {
                 write_edge(fh, src_bb, u_bb, Some(&unwind_label));
             }
-            &drop_label
+            drop_label
         },
         Terminator::DropAndReplace { target_bb, unwind_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(u_bb) = unwind_bb {
                 write_edge(fh, src_bb, u_bb, Some(&unwind_label));
             }
-            &drop_replace_label
+            drop_replace_label.to_owned()
         },
         Terminator::Assert { target_bb, cleanup_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(c_bb) = cleanup_bb {
                 write_edge(fh, src_bb, c_bb, Some(&unwind_label));
             }
-            &assert_label
+            assert_label.to_owned()
         },
         Terminator::Yield { resume_bb: target_bb, drop_bb: except_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(e_bb) = except_bb {
                 write_edge(fh, src_bb, e_bb, Some(&drop_label));
             }
-            &yield_label
+            yield_label.to_owned()
         },
         Terminator::Call { ref operand, ref cleanup_bb, ref ret_bb } => {
             let target_node_str = match operand {
@@ -146,7 +147,7 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
             if let Some(r_bb) = ret_bb {
                 write_edge_raw(fh, &target_node_str, &r_bb.to_string(), None);
             }
-            &call_label
+            call_label.to_owned()
         },
     };
 
@@ -207,7 +208,7 @@ fn graph(mir: Mir) {
 
 fn process(path: PathBuf) {
     let ef = elf::File::open_path(&path).unwrap();
-    let sec = ef.get_section(".yk_cfg").unwrap();
+    let sec = ef.get_section(".yk_tir").unwrap();
     let mut curs = Cursor::new(&sec.data);
     let mut dec = Decoder::from(&mut curs);
 
