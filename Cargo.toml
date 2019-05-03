@@ -5,7 +5,7 @@ authors = ["Edd Barrett <vext01@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-ykpack = { path = "../ykpack" }
+ykpack = { path = "../yk/ykpack" }
 elf = "0.0"
 fallible-iterator = "0.1"
 tempfile = "3.0"

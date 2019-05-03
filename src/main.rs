@@ -39,7 +39,10 @@ fn style_node(w: &mut dyn Write, node_name: &str, label: Option<&str>, attrs: Op
 fn get_statements_text(blk: &BasicBlock) -> String {
     let mut lines = Vec::new();
     for stmt in &blk.stmts {
-        lines.push(format!("{:?}", stmt));
+        let mut line = format!("{:?}", stmt);
+        line = line.replace("{", "\\{");
+        line = line.replace("}", "\\}");
+        lines.push(line);
     }
 
     lines.join("\\n")
@@ -86,12 +89,12 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
             write_edge_raw(fh, &src_bb_str, &abort_node, None);
             abort_label.to_owned()
         },
-        Terminator::Return(v) => {
+        Terminator::Return => {
             let ret_node = cx.external_node_label(ret_label.clone());
             style_node(fh, &ret_node, None, Some("shape=point"));
             write_edge_raw(fh, &src_bb_str, &ret_node, None);
             //ret_label.to_owned()
-            format!("ret({})", v)
+            ret_label.to_owned()
         },
         Terminator::Unreachable => {
             let unreach_node = cx.external_node_label(unreach_label.clone());
