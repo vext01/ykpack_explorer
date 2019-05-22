@@ -1,7 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 use std::io::{Cursor, Write};
-use ykpack::{DefId, Decoder, Pack, Mir, BasicBlock, Terminator, BasicBlockIndex, CallOperand};
+use ykpack::{DefId, Decoder, Pack, Tir, BasicBlock, Terminator, BasicBlockIndex, CallOperand};
 use fallible_iterator::FallibleIterator;
 use elf;
 use tempfile;
@@ -48,7 +48,7 @@ fn get_statements_text(blk: &BasicBlock) -> String {
     lines.join("\\n")
 }
 
-fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
+fn write_edges(_mir: &Tir, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
     let goto_label = String::from("goto");
     let ret_label = String::from("ret");
     let call_label = String::from("call");
@@ -67,11 +67,11 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
     let src_bb_str = src_bb.to_string();
 
     let term_label = match block.term {
-        Terminator::Goto{ target_bb } => {
+        Terminator::Goto(target_bb) => {
             write_edge(fh, src_bb, target_bb, None);
             goto_label.to_owned()
         },
-        Terminator::SwitchInt{ ref target_bbs } => {
+        Terminator::SwitchInt(ref local, ref target_bbs) => {
             for target_bb in target_bbs.clone() {
                 write_edge(fh, src_bb, target_bb, None);
             }
@@ -93,7 +93,6 @@ fn write_edges(_mir: &Mir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
             let ret_node = cx.external_node_label(ret_label.clone());
             style_node(fh, &ret_node, None, Some("shape=point"));
             write_edge_raw(fh, &src_bb_str, &ret_node, None);
-            //ret_label.to_owned()
             ret_label.to_owned()
         },
         Terminator::Unreachable => {
@@ -176,7 +175,7 @@ impl Context {
     }
 }
 
-fn graph(mir: Mir) {
+fn graph(mir: Tir) {
     let mut fh = tempfile::Builder::new()
         .prefix(&format!("mir-{}-{}", mir.def_id.crate_hash, mir.def_id.def_idx))
         .rand_bytes(0)
@@ -216,7 +215,7 @@ fn process(path: PathBuf) {
     let mut dec = Decoder::from(&mut curs);
 
     while let Some(pack) = dec.next().unwrap() {
-        let Pack::Mir(mir) = pack;
+        let Pack::Tir(mir) = pack;
         println!("{:?}", mir.def_id);
         graph(mir);
     }
