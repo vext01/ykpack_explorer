@@ -1,14 +1,14 @@
 use std::env;
 use std::path::PathBuf;
 use std::io::{Cursor, Write};
-use ykpack::{DefId, Decoder, Pack, Tir, BasicBlock, Terminator, BasicBlockIndex, CallOperand};
+use ykpack::{DefId, Decoder, Pack, Body, BasicBlock, Terminator, BasicBlockIndex, CallOperand};
 use fallible_iterator::FallibleIterator;
 use elf;
 use tempfile;
 use std::process::Command;
 use std::collections::HashMap;
 
-fn write_edge_raw(w: &mut Write, src_node: &str , dest_node: &str, edge_label: Option<&str>) {
+fn write_edge_raw(w: &mut dyn Write, src_node: &str , dest_node: &str, edge_label: Option<&str>) {
     if let Some(el) = edge_label {
         writeln!(w, "\"{}\" -> \"{}\" [label = \"{}\"];", src_node.to_string(), dest_node.to_string(), el.to_string()).unwrap();
     } else {
@@ -16,7 +16,7 @@ fn write_edge_raw(w: &mut Write, src_node: &str , dest_node: &str, edge_label: O
     }
 }
 
-fn write_edge(w: &mut Write, src_node: BasicBlockIndex, dest_node: BasicBlockIndex, edge_label: Option<&str>) {
+fn write_edge(w: &mut dyn Write, src_node: BasicBlockIndex, dest_node: BasicBlockIndex, edge_label: Option<&str>) {
     write_edge_raw(w, &src_node.to_string(), &dest_node.to_string(), edge_label);
 }
 
@@ -48,7 +48,7 @@ fn get_statements_text(blk: &BasicBlock) -> String {
     lines.join("\\n")
 }
 
-fn write_edges(_mir: &Tir, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
+fn write_edges(_mir: &Body, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
     let ret_label = String::from("ret");
     let cleanup_label = String::from("cleanup");
     let abort_label = String::from("abort");
@@ -150,11 +150,11 @@ impl Context {
     }
 }
 
-fn graph(mir: Tir) {
+fn graph(mir: Body) {
     let mut fh = tempfile::Builder::new()
-        .prefix(&format!("mir-{}-{}-{}", mir.def_id.crate_hash, mir.def_id.def_idx, mir.item_path_str))
+        .prefix(&format!("mir-{}-{}-{}", mir.def_id.crate_hash, mir.def_id.def_idx, mir.def_path_str))
         .rand_bytes(0)
-        .tempfile_in("mirs")
+        .tempfile_in("out")
         .unwrap();
 
     writeln!(fh, "digraph \"g\" {{").unwrap();
@@ -190,7 +190,7 @@ fn process(path: PathBuf) {
     let mut dec = Decoder::from(&mut curs);
 
     while let Some(pack) = dec.next().unwrap() {
-        let Pack::Tir(mir) = pack;
+        let Pack::Body(mir) = pack;
         println!("{:?}", mir.def_id);
         graph(mir);
     }
