@@ -39,7 +39,7 @@ fn style_node(w: &mut dyn Write, node_name: &str, label: Option<&str>, attrs: Op
 fn get_statements_text(blk: &BasicBlock) -> String {
     let mut lines = Vec::new();
     for stmt in &blk.stmts {
-        let mut line = format!("{:?}", stmt);
+        let mut line = format!("{}", stmt);
         line = line.replace("{", "\\{");
         line = line.replace("}", "\\}");
         lines.push(line);
@@ -49,91 +49,61 @@ fn get_statements_text(blk: &BasicBlock) -> String {
 }
 
 fn write_edges(_mir: &Tir, cx: &mut Context, src_bb: BasicBlockIndex, block: &BasicBlock, fh: &mut dyn Write) {
-    let goto_label = String::from("goto");
     let ret_label = String::from("ret");
-    let call_label = String::from("call");
     let cleanup_label = String::from("cleanup");
     let abort_label = String::from("abort");
-    let switch_int_label = String::from("switch_int");
     let resume_label = String::from("resume");
     let unreach_label = String::from("unreachable");
-    let gen_drop_label = String::from("gen drop");
-    let drop_label = String::from("drop");
     let unwind_label = String::from("unwind");
-    let drop_replace_label = String::from("drop+replace");
-    let yield_label = String::from("yield");
-    let assert_label = String::from("assert");
 
     let src_bb_str = src_bb.to_string();
 
-    let term_label = match block.term {
+    match block.term {
         Terminator::Goto(target_bb) => {
             write_edge(fh, src_bb, target_bb, None);
-            goto_label.to_owned()
         },
-        Terminator::SwitchInt(ref local, ref target_bbs) => {
+        Terminator::SwitchInt{ref target_bbs, ..} => {
             for target_bb in target_bbs.clone() {
                 write_edge(fh, src_bb, target_bb, None);
             }
-            switch_int_label.to_owned()
         },
         Terminator::Resume => {
             let resume_node = cx.external_node_label(resume_label.clone());
             style_node(fh, &resume_node, None, Some("shape=point, color=blue"));
             write_edge_raw(fh, &src_bb_str, &resume_node, None);
-            resume_label.to_owned()
         },
         Terminator::Abort => {
             let abort_node = cx.external_node_label(abort_label.clone());
             style_node(fh, &abort_node, None, Some("shape=point, color=red"));
             write_edge_raw(fh, &src_bb_str, &abort_node, None);
-            abort_label.to_owned()
         },
         Terminator::Return => {
             let ret_node = cx.external_node_label(ret_label.clone());
             style_node(fh, &ret_node, None, Some("shape=point"));
             write_edge_raw(fh, &src_bb_str, &ret_node, None);
-            ret_label.to_owned()
         },
         Terminator::Unreachable => {
             let unreach_node = cx.external_node_label(unreach_label.clone());
             style_node(fh, &unreach_node, None, None);
             write_edge_raw(fh, &src_bb_str, &unreach_node, None);
-            unreach_label.to_owned()
         },
-        Terminator::GeneratorDrop => {
-            let gen_drop_node = cx.external_node_label(gen_drop_label.clone());
-            style_node(fh, &gen_drop_node, None, None);
-            write_edge_raw(fh, &src_bb_str, &gen_drop_node, None);
-            gen_drop_label.to_owned()
-        }
         Terminator::Drop { target_bb, unwind_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(u_bb) = unwind_bb {
                 write_edge(fh, src_bb, u_bb, Some(&unwind_label));
             }
-            drop_label
         },
         Terminator::DropAndReplace { target_bb, unwind_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(u_bb) = unwind_bb {
                 write_edge(fh, src_bb, u_bb, Some(&unwind_label));
             }
-            drop_replace_label.to_owned()
         },
         Terminator::Assert { target_bb, cleanup_bb } => {
             write_edge(fh, src_bb, target_bb, None);
             if let Some(c_bb) = cleanup_bb {
                 write_edge(fh, src_bb, c_bb, Some(&unwind_label));
             }
-            assert_label.to_owned()
-        },
-        Terminator::Yield { resume_bb: target_bb, drop_bb: except_bb } => {
-            write_edge(fh, src_bb, target_bb, None);
-            if let Some(e_bb) = except_bb {
-                write_edge(fh, src_bb, e_bb, Some(&drop_label));
-            }
-            yield_label.to_owned()
         },
         Terminator::Call { ref operand, ref cleanup_bb, ref ret_bb } => {
             let target_node_str = match operand {
@@ -149,10 +119,15 @@ fn write_edges(_mir: &Tir, cx: &mut Context, src_bb: BasicBlockIndex, block: &Ba
             if let Some(r_bb) = ret_bb {
                 write_edge_raw(fh, &target_node_str, &r_bb.to_string(), None);
             }
-            call_label.to_owned()
         },
-    };
+        Terminator::Unimplemented => {
+            let unimpl_node = cx.external_node_label(abort_label.clone());
+            style_node(fh, &unimpl_node, None, Some("shape=point, color=red"));
+            write_edge_raw(fh, &src_bb_str, &unimpl_node, None);
+        },
+    }
 
+    let term_label = format!("{}", block.term);
     let stmts_str = get_statements_text(block);
 
     style_node(fh, &src_bb_str, Some(&format!("{{{} | {} | {}}}", src_bb_str, stmts_str, term_label)), Some("shape = record, style=filled, fillcolor=beige"));
@@ -177,7 +152,7 @@ impl Context {
 
 fn graph(mir: Tir) {
     let mut fh = tempfile::Builder::new()
-        .prefix(&format!("mir-{}-{}", mir.def_id.crate_hash, mir.def_id.def_idx))
+        .prefix(&format!("mir-{}-{}-{}", mir.def_id.crate_hash, mir.def_id.def_idx, mir.item_path_str))
         .rand_bytes(0)
         .tempfile_in("mirs")
         .unwrap();
